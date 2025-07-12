@@ -23,7 +23,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
     e.preventDefault();
     
     try {
-      const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      const baseUrl = 'http://localhost:5000'; // Change to use consistent port with backend
       const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register';
       const response = await fetch(`${baseUrl}${endpoint}`, {
         method: 'POST',
@@ -37,16 +37,35 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
         }),
       });
 
-      const data = await response.json();
-      
       if (!response.ok) {
-        throw new Error(data.message);
+        const errorData = await response.text();
+        let errorMessage;
+        try {
+          const parsedError = JSON.parse(errorData);
+          errorMessage = parsedError.message || 'Authentication failed';
+        } catch (parseError) {
+          errorMessage = errorData || 'Authentication failed';
+        }
+        throw new Error(errorMessage);
       }
 
-      handleLogin(data.user, data.token);
+      const data = await response.json();
+      console.log('Auth response:', data); // Debug log
+      
+      if (!data.token) {
+        throw new Error('No token received from server');
+      }
+
+      // Store token as received from server (backend now returns clean token)
+      const token = data.token;
+      localStorage.setItem('token', token);
+      console.log('Token stored:', token.substring(0, 20) + '...'); // Debug log
+
+      handleLogin(data.user, token);
       onClose();
     } catch (error) {
-      alert(error instanceof Error ? error.message : 'An error occurred');
+      console.error('Auth error:', error);
+      alert(error instanceof Error ? error.message : 'Authentication failed');
     }
   };
 

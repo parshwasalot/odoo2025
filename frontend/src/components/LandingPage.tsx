@@ -2,7 +2,7 @@ import React from 'react';
 import { ArrowRight, Recycle, Users, Heart, Leaf, TrendingUp, Award } from 'lucide-react';
 import { useUser } from '../contexts/UserContext';
 
-interface LandingPageProps {
+export interface LandingPageProps {
   setCurrentPage: (page: string) => void;
 }
 

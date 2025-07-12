@@ -1,13 +1,17 @@
 import React, { useState } from 'react';
 import { Upload, X, Plus, ArrowLeft } from 'lucide-react';
 import { useItems } from '../contexts/ItemsContext';
+import { useNavigate } from 'react-router-dom';
 
 export const AddItem: React.FC = () => {
   const { handleAddItem } = useItems();
+  const navigate = useNavigate();
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
     category: '',
+    type: '', // Add type field
     size: '',
     condition: 'Excellent' as const,
     pointValue: 25,
@@ -15,27 +19,50 @@ export const AddItem: React.FC = () => {
     brand: '',
     material: '',
   });
-  const [images, setImages] = useState<string[]>([]);
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [newTag, setNewTag] = useState('');
 
   const categories = ['Tops', 'Bottoms', 'Dresses', 'Outerwear', 'Shoes', 'Accessories'];
   const sizes = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
   const conditions = ['New', 'Like New', 'Excellent', 'Good', 'Fair'] as const;
 
+  const getTypes = (category: string) => {
+    switch (category.toLowerCase()) {
+      case 'tops':
+        return ['T-Shirt', 'Blouse', 'Sweater', 'Tank Top'];
+      case 'bottoms':
+        return ['Jeans', 'Shorts', 'Skirt', 'Pants'];
+      case 'dresses':
+        return ['Mini', 'Midi', 'Maxi', 'Casual', 'Formal'];
+      case 'outerwear':
+        return ['Jacket', 'Coat', 'Blazer', 'Hoodie'];
+      case 'shoes':
+        return ['Sneakers', 'Boots', 'Sandals', 'Heels'];
+      case 'accessories':
+        return ['Bags', 'Jewelry', 'Belts', 'Scarves'];
+      default:
+        return [];
+    }
+  };
+
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files) {
-      // In a real app, you would upload to a service like Cloudinary
-      // For demo purposes, we'll use placeholder images
-      const newImages = Array.from(files).map(() => 
-        `https://images.pexels.com/photos/1040945/pexels-photo-1040945.jpeg?auto=compress&cs=tinysrgb&w=800`
-      );
-      setImages(prev => [...prev, ...newImages].slice(0, 5)); // Max 5 images
+      const newFiles = Array.from(files);
+      const newUrls = newFiles.map(file => URL.createObjectURL(file));
+      
+      setImageFiles(prev => [...prev, ...newFiles].slice(0, 5));
+      setImageUrls(prev => [...prev, ...newUrls].slice(0, 5));
     }
   };
 
   const removeImage = (index: number) => {
-    setImages(prev => prev.filter((_, i) => i !== index));
+    setImageFiles(prev => prev.filter((_, i) => i !== index));
+    setImageUrls(prev => {
+      URL.revokeObjectURL(prev[index]);
+      return prev.filter((_, i) => i !== index);
+    });
   };
 
   const addTag = () => {
@@ -55,27 +82,83 @@ export const AddItem: React.FC = () => {
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleCategoryChange = (category: string) => {
+    setFormData(prev => ({
+      ...prev,
+      category, // Remove toLowerCase() here
+      type: '' // Reset type when category changes
+    }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSubmitError(null);
     
-    if (images.length === 0) {
-      alert('Please add at least one image');
+    if (imageFiles.length === 0) {
+      setSubmitError('Please add at least one image');
       return;
     }
 
-    handleAddItem({
-      ...formData,
-      images
-    });
+    try {
+      console.log('Starting item submission...');
+      console.log('Image files to submit:', imageFiles.map(f => ({ name: f.name, size: f.size, type: f.type })));
+      
+      const formDataToSubmit = {
+        ...formData,
+        images: imageFiles // Send File objects directly
+      };
+      
+      await handleAddItem(formDataToSubmit);
+      
+      // Clear form and redirect
+      setFormData({
+        title: '',
+        description: '',
+        category: '',
+        type: '',
+        size: '',
+        condition: 'Excellent',
+        pointValue: 25,
+        tags: [],
+        brand: '',
+        material: '',
+      });
+      
+      imageUrls.forEach(url => URL.revokeObjectURL(url));
+      setImageFiles([]);
+      setImageUrls([]);
+      
+      navigate('/dashboard');
+    } catch (error: any) {
+      console.error('Error submitting item:', error);
+      setSubmitError(error.message || 'Failed to add item. Please try again.');
+      
+      // If session expired, redirect to login
+      if (error.message === 'Session expired. Please login again.') {
+        navigate('/login');
+      }
+    }
+  };
+
+  // Update back button to use navigate
+  const handleBack = () => {
+    navigate(-1);
   };
 
   return (
     <div className="min-h-screen bg-gray-50 pt-8 pb-16">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Error Display */}
+        {submitError && (
+          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-red-600">{submitError}</p>
+          </div>
+        )}
+        
         {/* Header */}
         <div className="mb-8">
           <button
-            onClick={() => window.history.back()}
+            onClick={handleBack}
             className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 mb-4"
           >
             <ArrowLeft className="w-5 h-5" />
@@ -93,10 +176,10 @@ export const AddItem: React.FC = () => {
             <h2 className="text-xl font-semibold text-gray-900 mb-4">Photos</h2>
             
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
-              {images.map((image, index) => (
+              {imageUrls.map((url, index) => (
                 <div key={index} className="relative aspect-square">
                   <img
-                    src={image}
+                    src={url}
                     alt={`Item ${index + 1}`}
                     className="w-full h-full object-cover rounded-lg"
                   />
@@ -110,7 +193,7 @@ export const AddItem: React.FC = () => {
                 </div>
               ))}
               
-              {images.length < 5 && (
+              {imageUrls.length < 5 && (
                 <label className="aspect-square border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-emerald-500 hover:bg-emerald-50 transition-colors">
                   <Upload className="w-8 h-8 text-gray-400 mb-2" />
                   <span className="text-sm text-gray-600">Add Photo</span>
@@ -169,12 +252,30 @@ export const AddItem: React.FC = () => {
                 <select
                   required
                   value={formData.category}
-                  onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value }))}
+                  onChange={(e) => handleCategoryChange(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                 >
                   <option value="">Select a category</option>
                   {categories.map(category => (
                     <option key={category} value={category}>{category}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Add Type field */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Type *
+                </label>
+                <select
+                  required
+                  value={formData.type}
+                  onChange={(e) => setFormData(prev => ({ ...prev, type: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                >
+                  <option value="">Select a type</option>
+                  {getTypes(formData.category).map(type => (
+                    <option key={type} value={type}>{type}</option>
                   ))}
                 </select>
               </div>

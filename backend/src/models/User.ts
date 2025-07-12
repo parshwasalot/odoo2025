@@ -40,10 +40,41 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
+  isBlocked: {
+    type: Boolean,
+    default: false,
+  },
+  // Additional fields for stats tracking
+  totalSwaps: {
+    type: Number,
+    default: 0,
+  },
+  successfulSwaps: {
+    type: Number,
+    default: 0,
+  },
+  totalListings: {
+    type: Number,
+    default: 0,
+  },
+  averageRating: {
+    type: Number,
+    default: 0,
+  },
+  city: {
+    type: String,
+    trim: true,
+  },
+  lastActive: {
+    type: Date,
+    default: Date.now,
+  },
 }, {
   timestamps: true,
 });
 
 userSchema.index({ email: 1 });
+userSchema.index({ location: 1 });
+userSchema.index({ city: 1 });
 
 export default mongoose.model('User', userSchema);

@@ -11,11 +11,24 @@ export interface TokenPayload {
 }
 
 export const generateToken = (payload: TokenPayload): string => {
-  const secret: Secret = process.env.JWT_SECRET || '';
+  const secret: Secret = process.env.JWT_SECRET as Secret;
+  if (!secret) {
+    throw new Error('JWT_SECRET is not defined');
+  }
+
+  console.log('Generating token for:', {
+    userId: payload.userId,
+    email: payload.email,
+    name: payload.name
+  });
+
   const options: SignOptions = {
-    expiresIn: process.env.JWT_EXPIRES_IN ? parseInt(process.env.JWT_EXPIRES_IN) : '7d',
+    expiresIn: '24h', // Set a fixed expiration for now
   };
-  return jwt.sign(payload, secret, options);
+
+  const token = jwt.sign(payload, secret, options);
+  console.log('Token generated:', token.substring(0, 20) + '...');
+  return token;
 };
 
 export const verifyToken = (token: string): TokenPayload => {

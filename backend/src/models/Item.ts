@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import path from 'path';
 
 const itemSchema = new mongoose.Schema({
   title: {
@@ -29,13 +30,13 @@ const itemSchema = new mongoose.Schema({
   condition: {
     type: String,
     required: true,
-    enum: ['new', 'excellent', 'good', 'fair'],
+    enum: ['New', 'Like New', 'Excellent', 'Good', 'Fair'],
   },
-  tags: [{
-    type: String,
-    trim: true,
-  }],
   images: [{
+    type: String, // Changed from Buffer to String to store file paths
+    required: true,
+  }],
+  imageTypes: [{
     type: String,
     required: true,
   }],
@@ -68,6 +69,10 @@ const itemSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
+  tags: [{
+    type: String,
+    trim: true
+  }],
   views: {
     type: Number,
     default: 0
@@ -84,6 +89,22 @@ const itemSchema = new mongoose.Schema({
   }
 }, {
   timestamps: true,
+});
+
+// Add virtual for image URLs
+itemSchema.virtual('imageUrls').get(function() {
+  return this.images.map((imagePath: string) => {
+    return `/uploads/items/${path.basename(imagePath)}`;
+  });
+});
+
+itemSchema.set('toJSON', {
+  virtuals: true,
+  transform: function(doc, ret: { images?: any, imageTypes?: any }) {
+    delete ret.images;
+    delete ret.imageTypes;
+    return ret;
+  }
 });
 
 itemSchema.index({ category: 1, status: 1 });

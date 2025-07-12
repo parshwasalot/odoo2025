@@ -150,10 +150,20 @@ export const getUsers = async (req: Request, res: Response): Promise<void> => {
 
 export const updateUserStatus = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { isAdmin } = req.body;
+    const { isAdmin, isBlocked } = req.body;
+    const updateData: any = {};
+    
+    if (typeof isAdmin === 'boolean') {
+      updateData.isAdmin = isAdmin;
+    }
+    
+    if (typeof isBlocked === 'boolean') {
+      updateData.isBlocked = isBlocked;
+    }
+
     const user = await User.findByIdAndUpdate(
       req.params.id,
-      { isAdmin },
+      updateData,
       { new: true }
     ).select('-password');
 

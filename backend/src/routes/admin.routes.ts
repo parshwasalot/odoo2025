@@ -7,13 +7,13 @@ import {
   getUsers,
   updateUserStatus
 } from '../controllers/admin.controller';
-import { authenticate, requireAdmin } from '../middleware/auth';
+import { authenticateAdminPin } from '../middleware/auth';
 import { validateItemModeration } from '../middleware/adminValidation';
 
 const router = Router();
 
-// All routes require authentication and admin privileges
-router.use(authenticate, requireAdmin);
+// All routes require PIN-based admin authentication
+router.use(authenticateAdminPin);
 
 // Item moderation
 router.get('/moderation/items', getModerationQueue);

@@ -2,6 +2,8 @@ import React, { createContext, useContext, useState, useCallback } from 'react';
 import type { Item } from '../types';
 import axios from 'axios';
 
+const API_URL = 'http://localhost:5000';
+
 interface ItemsContextType {
   items: Item[];
   loading: boolean;
@@ -26,7 +28,7 @@ export const ItemsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setLoading(true);
       setError(null);
       const token = localStorage.getItem('token');
-      const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/items`, {
+      const response = await axios.get(`${API_URL}/api/items`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setItems(response.data.items);
@@ -43,30 +45,82 @@ export const ItemsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setLoading(true);
       setError(null);
       const token = localStorage.getItem('token');
+      
+      if (!token) {
+        throw new Error('Authentication token not found');
+      }
+
+      console.log('Preparing form data for submission...');
+      console.log('Item data received:', { ...itemData, images: `${itemData.images?.length || 0} files` });
+      
       const formData = new FormData();
       
-      // Append all item data
+      // Handle images first - these must be File objects
+      if (itemData.images && itemData.images.length > 0) {
+        itemData.images.forEach((file: File, index: number) => {
+          if (file instanceof File) {
+            formData.append('images', file);
+            console.log(`Added image ${index + 1}:`, file.name, file.type, file.size);
+          } else {
+            console.error(`Image ${index + 1} is not a File object:`, typeof file);
+          }
+        });
+      }
+
+      // Append remaining data with proper formatting
       Object.keys(itemData).forEach(key => {
-        if (key === 'images') {
-          itemData.images.forEach((image: File) => {
-            formData.append('images', image);
-          });
+        if (key !== 'images' && itemData[key] !== undefined && itemData[key] !== '') {
+          if (Array.isArray(itemData[key])) {
+            // For arrays like tags, append as JSON if not empty
+            if (itemData[key].length > 0) {
+              formData.append(key, JSON.stringify(itemData[key]));
+            }
+          } else {
+            formData.append(key, itemData[key].toString());
+          }
+        }
+      });
+
+      // Log FormData contents for debugging
+      console.log('FormData entries:');
+      for (let [key, value] of formData.entries()) {
+        if (value instanceof File) {
+          console.log(`${key}: File(${value.name}, ${value.size} bytes, ${value.type})`);
         } else {
-          formData.append(key, itemData[key]);
+          console.log(`${key}:`, value);
         }
-      });
+      }
 
-      await axios.post(`${process.env.REACT_APP_API_URL}/api/items`, formData, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'multipart/form-data'
+      const authToken = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
+      console.log('Using auth token:', authToken.substring(0, 20) + '...');
+
+      const response = await axios.post(
+        `${API_URL}/api/items`, 
+        formData, 
+        {
+          headers: {
+            'Authorization': authToken,
+            'Content-Type': 'multipart/form-data'
+          }
         }
-      });
+      );
 
-      await fetchItems();
-    } catch (err) {
-      setError('Failed to add item');
-      throw err;
+      console.log('Server response:', response.data);
+      setItems(prev => [response.data, ...prev]);
+      return response.data;
+    } catch (err: any) {
+      console.error('Error in handleAddItem:', err);
+      console.error('Response data:', err.response?.data);
+      if (err.response?.status === 401) {
+        console.log('Token validation failed:', err.response.data);
+        if (err.response.data.message === 'Invalid token') {
+          localStorage.removeItem('token');
+          throw new Error('Session expired. Please login again.');
+        }
+      }
+      const errorMessage = err.response?.data?.message || err.message || 'Failed to add item';
+      setError(errorMessage);
+      throw new Error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -75,7 +129,7 @@ export const ItemsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const handleViewItem = async (item: Item) => {
     try {
       const token = localStorage.getItem('token');
-      await axios.put(`${process.env.REACT_APP_API_URL}/api/items/${item.id}/view`, null, {
+      await axios.put(`${API_URL}/api/items/${item.id}/view`, null, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setSelectedItem(item);
