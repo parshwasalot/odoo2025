@@ -19,33 +19,34 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (isLogin) {
-      // Mock login - in real app would validate credentials
-      handleLogin({
-        name: formData.name || 'John Doe',
-        email: formData.email,
-        points: 150,
-        rating: 4.8,
-        itemsPosted: 3,
-        swapsCompleted: 7,
-        joinDate: new Date(),
-        bio: 'Passionate about sustainable fashion and reducing textile waste.'
+    try {
+      const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register';
+      const response = await fetch(`${baseUrl}${endpoint}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: formData.name,
+          email: formData.email,
+          password: formData.password,
+        }),
       });
-    } else {
-      // Mock registration
-      handleLogin({
-        name: formData.name,
-        email: formData.email,
-        points: 50, // Welcome bonus
-        rating: 5.0,
-        itemsPosted: 0,
-        swapsCompleted: 0,
-        joinDate: new Date(),
-        bio: ''
-      });
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.message);
+      }
+
+      handleLogin(data.user, data.token);
+      onClose();
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'An error occurred');
     }
   };
 
