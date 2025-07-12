@@ -13,6 +13,7 @@ export interface Item {
   datePosted: Date;
   tags: string[];
   isAvailable: boolean;
+  userRating?: number;
 }
 
 export interface FilterOptions {

@@ -7,12 +7,16 @@ export const validateSwapRequest = (
   next: NextFunction
 ): void => {
   try {
-    const { itemId, message } = req.body;
+    const { itemId, offeredItemId, message } = req.body;
 
     const errors: string[] = [];
 
     if (!itemId || !Types.ObjectId.isValid(itemId)) {
       errors.push('Valid item ID is required');
+    }
+
+    if (offeredItemId !== undefined && (!offeredItemId || !Types.ObjectId.isValid(offeredItemId))) {
+      errors.push('Valid offered item ID is required when provided');
     }
 
     if (message !== undefined) {

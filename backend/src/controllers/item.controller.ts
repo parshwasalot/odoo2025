@@ -75,7 +75,7 @@ export const createItem = async (req: Request, res: Response): Promise<void> => 
 export const getItems = async (req: Request, res: Response): Promise<void> => {
   try {
     const { category, search, status, page = 1, limit = 10 } = req.query;
-    const query: any = {};
+    const query: any = { status: 'available' }; // Only show available items by default
 
     if (category) query.category = category;
     if (status) query.status = status;
@@ -88,19 +88,32 @@ export const getItems = async (req: Request, res: Response): Promise<void> => {
     }
 
     const items = await Item.find(query)
+      .populate('uploaderId', 'name email')
       .skip((Number(page) - 1) * Number(limit))
       .limit(Number(limit))
       .sort({ createdAt: -1 });
 
     const total = await Item.countDocuments(query);
 
+    // Transform the response to include user data in the expected format
+    const transformedItems = items.map(item => ({
+      ...item.toJSON(),
+      id: item._id,
+      userId: (item.uploaderId as any)._id,
+      userName: (item.uploaderId as any).name,
+      userRating: 5, // Default rating for now
+      datePosted: item.createdAt,
+      isAvailable: item.status === 'available'
+    }));
+
     res.json({
-      items,
+      items: transformedItems,
       total,
       pages: Math.ceil(total / Number(limit)),
       currentPage: Number(page)
     });
   } catch (error) {
+    console.error('Error fetching items:', error);
     res.status(500).json({ message: 'Error fetching items' });
   }
 };

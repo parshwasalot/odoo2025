@@ -18,12 +18,12 @@ const pointsTransactionSchema = new mongoose.Schema({
   reason: {
     type: String,
     required: true,
-    enum: ['item_upload', 'item_redemption', 'swap_completion'],
+    enum: ['item_upload', 'item_redemption', 'swap_completion', 'admin_adjustment'],
   },
   itemId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Item',
-    required: true,
+    required: false,
   },
 }, {
   timestamps: true,

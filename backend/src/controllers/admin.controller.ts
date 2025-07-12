@@ -3,6 +3,7 @@ import User from '../models/User';
 import Item from '../models/Item';
 import Swap from '../models/Swap';
 import { Types } from 'mongoose';
+import { awardPoints } from '../utils/pointsService';
 
 export const getModerationQueue = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -42,15 +43,14 @@ export const approveItem = async (req: Request, res: Response): Promise<void> =>
     }
 
     // Award points to the uploader
-    await User.findByIdAndUpdate(item.uploaderId, {
-      $inc: { points: 10 }
-    });
+    await awardPoints(item.uploaderId._id, 10, 'item_upload', item._id);
 
     // Notify the uploader
-    req.app.get('io').to(item.uploaderId.toString()).emit('item_approved', { item });
+    req.app.get('io')?.to(item.uploaderId._id.toString()).emit('item_approved', { item });
 
     res.json(item);
   } catch (error) {
+    console.error('Error approving item:', error);
     res.status(500).json({ message: 'Error approving item' });
   }
 };

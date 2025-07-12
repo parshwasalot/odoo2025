@@ -16,6 +16,11 @@ const swapSchema = new mongoose.Schema({
     ref: 'User',
     required: true,
   },
+  offeredItemId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Item',
+    required: false,
+  },
   message: {
     type: String,
     trim: true,

@@ -1,16 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Heart, MessageCircle, Star, Eye, Calendar, Package, Repeat, Search, Filter } from 'lucide-react';
+import { ArrowLeft, Star, Eye, Calendar, Package, Repeat, Search } from 'lucide-react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useItems } from '../contexts/ItemsContext';
 import { useUser } from '../contexts/UserContext';
-import { useMessages } from '../contexts/MessagesContext';
+import { swapService } from '../services/swapService';
 
 export const ItemDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { selectedItem, items, setSelectedItem } = useItems();
   const { currentUser } = useUser();
-  const { handleSwapRequest, handleSendMessage } = useMessages();
   const [selectedImage, setSelectedImage] = useState(0);
   const [showSwapModal, setShowSwapModal] = useState(false);
   const [selectedOfferItem, setSelectedOfferItem] = useState<string>('');
@@ -18,6 +17,9 @@ export const ItemDetail: React.FC = () => {
   const [showBrowse, setShowBrowse] = useState(!id);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
+  const [swapping, setSwapping] = useState(false);
+
+  const userItems = currentUser ? items.filter(item => item.userId === currentUser.id && item.id !== selectedItem?.id && item.isAvailable) : [];
 
   const getItemById = (itemId: string) => {
     return items.find(item => item.id === itemId);
@@ -55,10 +57,13 @@ export const ItemDetail: React.FC = () => {
     }
   }, [id, items]);
 
-  // Reset selected image when item changes
+  // Reset selected image when item changes and set default offer item
   useEffect(() => {
     setSelectedImage(0);
-  }, [selectedItem]);
+    if (userItems.length > 0) {
+      setSelectedOfferItem(userItems[0].id?.toString() || '');
+    }
+  }, [selectedItem, userItems]);
 
   // Filter items for browse view
   const filteredItems = items.filter(item => {
@@ -109,7 +114,7 @@ export const ItemDetail: React.FC = () => {
                 <div
                   key={item.id}
                   className="bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow cursor-pointer group"
-                  onClick={() => selectItemById(item.id)}
+                  onClick={() => selectItemById(item.id?.toString() || '')}
                 >
                   <div className="aspect-square overflow-hidden rounded-t-xl">
                     <img
@@ -153,23 +158,31 @@ export const ItemDetail: React.FC = () => {
     );
   }
 
-  const userItems = currentUser ? items.filter(item => item.userId === currentUser.id && item.id !== selectedItem.id) : [];
-
-  const handleSwap = () => {
-    if (!currentUser) return;
+  const handleSwap = async () => {
+    if (!currentUser || !selectedItem) return;
     
-    if (selectedOfferItem) {
-      handleSwapRequest(selectedItem.id, selectedOfferItem);
-    } else if (currentUser.points >= selectedItem.pointValue) {
-      handleSwapRequest(selectedItem.id, undefined, selectedItem.pointValue);
+    setSwapping(true);
+    try {
+      const swapData: any = {
+        itemId: selectedItem.id,
+        message: message || undefined
+      };
+      
+      if (selectedOfferItem) {
+        swapData.offeredItemId = selectedOfferItem;
+      }
+      
+      await swapService.createSwapRequest(swapData);
+      setShowSwapModal(false);
+      setMessage('');
+      setSelectedOfferItem('');
+      alert('Swap request sent successfully!');
+    } catch (error: any) {
+      console.error('Error creating swap request:', error);
+      alert(error.response?.data?.message || 'Failed to send swap request');
+    } finally {
+      setSwapping(false);
     }
-    
-    if (message) {
-      handleSendMessage(selectedItem.userId, message);
-    }
-    
-    setShowSwapModal(false);
-    alert('Swap request sent successfully!');
   };
 
   return (
@@ -304,17 +317,10 @@ export const ItemDetail: React.FC = () => {
                   <Repeat className="w-5 h-5" />
                   <span>Request Swap</span>
                 </button>
-                <button
-                  onClick={() => handleSendMessage(selectedItem.userId, `Hi! I'm interested in your ${selectedItem.title}.`)}
-                  className="w-full border-2 border-emerald-600 text-emerald-600 py-3 rounded-xl font-semibold hover:bg-emerald-600 hover:text-white transition-colors flex items-center justify-center space-x-2"
-                >
-                  <MessageCircle className="w-5 h-5" />
-                  <span>Send Message</span>
-                </button>
               </div>
             ) : !currentUser ? (
               <div className="bg-gray-100 p-4 rounded-xl text-center">
-                <p className="text-gray-600 mb-3">Sign in to request a swap or send a message</p>
+                <p className="text-gray-600 mb-3">Sign in to request a swap</p>
                 <button className="bg-emerald-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-emerald-700 transition-colors">
                   Sign In
                 </button>
@@ -339,38 +345,25 @@ export const ItemDetail: React.FC = () => {
                     Choose swap option:
                   </label>
                   <div className="space-y-2">
-                    <label className="flex items-center space-x-3">
-                      <input
-                        type="radio"
-                        name="swapType"
-                        value="points"
-                        checked={!selectedOfferItem}
-                        onChange={() => setSelectedOfferItem('')}
-                        className="text-emerald-600"
-                      />
-                      <span>Use {selectedItem.pointValue} points</span>
-                      {currentUser && currentUser.points < selectedItem.pointValue && (
-                        <span className="text-red-500 text-sm">(Insufficient points)</span>
-                      )}
-                    </label>
-                    
-                    {userItems.length > 0 && (
+                    {userItems.length > 0 ? (
                       <label className="flex items-center space-x-3">
                         <input
                           type="radio"
                           name="swapType"
                           value="item"
-                          checked={!!selectedOfferItem}
-                          onChange={() => setSelectedOfferItem(userItems[0]?.id || '')}
+                          checked={true}
+                          onChange={() => setSelectedOfferItem(userItems[0]?.id?.toString() || '')}
                           className="text-emerald-600"
                         />
                         <span>Offer one of my items</span>
                       </label>
+                    ) : (
+                      <p className="text-gray-600">You need to have posted items to make swap offers.</p>
                     )}
                   </div>
                 </div>
 
-                {selectedOfferItem && (
+                {userItems.length > 0 && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Select item to offer:
@@ -411,10 +404,10 @@ export const ItemDetail: React.FC = () => {
                   </button>
                   <button
                     onClick={handleSwap}
-                    disabled={!selectedOfferItem && (!currentUser || currentUser.points < selectedItem.pointValue)}
+                    disabled={swapping || userItems.length === 0}
                     className="flex-1 bg-emerald-600 text-white py-2 rounded-lg font-medium hover:bg-emerald-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
                   >
-                    Send Request
+                    {swapping ? 'Sending...' : 'Send Request'}
                   </button>
                 </div>
               </div>

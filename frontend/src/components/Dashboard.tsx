@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Plus, Eye, MessageCircle, Heart, TrendingUp, Award, Calendar, Settings, RefreshCw } from 'lucide-react';
 import { useUser } from '../contexts/UserContext';
+import { Swaps } from './Swaps';
 
 interface UserItem {
   id: string;
@@ -179,6 +180,7 @@ export const Dashboard: React.FC = () => {
   const tabs = [
     { id: 'overview', label: 'Overview' },
     { id: 'items', label: 'My Items' },
+    { id: 'swaps', label: 'Swaps' },
     { id: 'activity', label: 'Activity' },
     { id: 'profile', label: 'Profile' },
   ];
@@ -361,6 +363,16 @@ export const Dashboard: React.FC = () => {
                       </button>
                     </div>
                   )}
+                </div>
+              )}
+
+              {activeTab === 'swaps' && (
+                <div>
+                  <div className="mb-6">
+                    <h3 className="text-lg font-semibold text-gray-900">Swap Requests</h3>
+                    <p className="text-sm text-gray-600">Manage your incoming and outgoing swap requests</p>
+                  </div>
+                  <Swaps />
                 </div>
               )}
 

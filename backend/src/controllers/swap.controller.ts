@@ -7,7 +7,7 @@ import PointsTransaction from '../models/PointsTransaction';
 
 export const createSwap = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { itemId, message } = req.body;
+    const { itemId, offeredItemId, message } = req.body;
     
     if (!req.user?.userId) {
       res.status(401).json({ message: 'Authentication required' });
@@ -32,25 +32,49 @@ export const createSwap = async (req: Request, res: Response): Promise<void> => 
       return;
     }
 
+    // Validate offered item if provided
+    if (offeredItemId) {
+      const offeredItem = await Item.findById(offeredItemId);
+      if (!offeredItem) {
+        res.status(404).json({ message: 'Offered item not found' });
+        return;
+      }
+      
+      if (offeredItem.uploaderId.toString() !== requesterId.toString()) {
+        res.status(400).json({ message: 'You can only offer your own items' });
+        return;
+      }
+      
+      if (offeredItem.status !== 'available') {
+        res.status(400).json({ message: 'Offered item is not available' });
+        return;
+      }
+    }
+
     const swap = await Swap.create({
       itemId,
       requesterId,
       ownerId: item.uploaderId,
+      offeredItemId: offeredItemId || undefined,
       message,
       status: 'pending'
     });
 
-    // Update item status
+    // Update items status to reserved
     await Item.findByIdAndUpdate(itemId, { status: 'reserved' });
+    if (offeredItemId) {
+      await Item.findByIdAndUpdate(offeredItemId, { status: 'reserved' });
+    }
 
     // Emit socket event for real-time notification
-    req.app.get('io').to(item.uploaderId.toString()).emit('swap_request', {
+    req.app.get('io')?.to(item.uploaderId.toString()).emit('swap_request', {
       swap,
       item
     });
 
     res.status(201).json(swap);
   } catch (error) {
+    console.error('Error creating swap request:', error);
     res.status(500).json({ message: 'Error creating swap request' });
   }
 };
@@ -66,15 +90,18 @@ export const getUserSwaps = async (req: Request, res: Response): Promise<void> =
 
     const [incomingSwaps, outgoingSwaps] = await Promise.all([
       Swap.find({ ownerId: userId })
-        .populate('itemId')
+        .populate('itemId', 'title images pointValue uploaderId')
+        .populate('offeredItemId', 'title images pointValue uploaderId')
         .populate('requesterId', 'name email'),
       Swap.find({ requesterId: userId })
-        .populate('itemId')
+        .populate('itemId', 'title images pointValue uploaderId')
+        .populate('offeredItemId', 'title images pointValue uploaderId')
         .populate('ownerId', 'name email')
     ]);
 
     res.json({ incomingSwaps, outgoingSwaps });
   } catch (error) {
+    console.error('Error fetching swaps:', error);
     res.status(500).json({ message: 'Error fetching swaps' });
   }
 };
@@ -124,13 +151,17 @@ export const rejectSwap = async (req: Request, res: Response): Promise<void> => 
     swap.status = 'rejected';
     await swap.save();
 
-    // Make item available again
+    // Make items available again
     await Item.findByIdAndUpdate(swap.itemId, { status: 'available' });
+    if (swap.offeredItemId) {
+      await Item.findByIdAndUpdate(swap.offeredItemId, { status: 'available' });
+    }
 
-    req.app.get('io').to(swap.requesterId.toString()).emit('swap_rejected', { swap });
+    req.app.get('io')?.to(swap.requesterId.toString()).emit('swap_rejected', { swap });
 
     res.json(swap);
   } catch (error) {
+    console.error('Error rejecting swap:', error);
     res.status(500).json({ message: 'Error rejecting swap' });
   }
 };
@@ -166,15 +197,36 @@ export const completeSwap = async (req: Request, res: Response): Promise<void> =
       swap.status = 'completed';
       await swap.save({ session });
 
-      // Update item status
+      // Update items status to swapped
       await Item.findByIdAndUpdate(
         swap.itemId,
         { status: 'swapped' },
         { session }
       );
 
-      // Award points to both users
-      const pointsTransaction = await PointsTransaction.create([
+      if (swap.offeredItemId) {
+        await Item.findByIdAndUpdate(
+          swap.offeredItemId,
+          { status: 'swapped' },
+          { session }
+        );
+      }
+
+      // Award points to both users (10 points each for successful swap)
+      await User.findByIdAndUpdate(
+        swap.ownerId,
+        { $inc: { points: 10 } },
+        { session }
+      );
+
+      await User.findByIdAndUpdate(
+        swap.requesterId,
+        { $inc: { points: 10 } },
+        { session }
+      );
+
+      // Create points transactions
+      const pointsTransactions = await PointsTransaction.create([
         {
           userId: swap.ownerId,
           type: 'earned',
@@ -193,9 +245,9 @@ export const completeSwap = async (req: Request, res: Response): Promise<void> =
 
       await session.commitTransaction();
       
-      req.app.get('io').to([swap.ownerId.toString(), swap.requesterId.toString()]).emit('swap_completed', { swap });
+      req.app.get('io')?.to([swap.ownerId.toString(), swap.requesterId.toString()]).emit('swap_completed', { swap });
 
-      res.json({ swap, pointsTransaction });
+      res.json({ swap, pointsTransactions });
     } catch (error) {
       await session.abortTransaction();
       throw error;
@@ -203,6 +255,7 @@ export const completeSwap = async (req: Request, res: Response): Promise<void> =
       session.endSession();
     }
   } catch (error) {
+    console.error('Error completing swap:', error);
     res.status(500).json({ message: 'Error completing swap' });
   }
 };
