@@ -47,6 +47,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setToken(savedToken);
         setCurrentUser({
           ...user,
+          id: user.id?.toString(), // Ensure ID is always a string
           joinDate: user.joinDate ? new Date(user.joinDate) : new Date()
         });
         // Don't automatically refresh on initialization to prevent rate limiting
@@ -93,7 +94,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (response.ok) {
         const userData = await response.json();
         const updatedUser = {
-          id: userData._id,
+          id: userData._id?.toString(), // Ensure ID is always a string
           name: userData.name,
           email: userData.email,
           isAdmin: userData.isAdmin,

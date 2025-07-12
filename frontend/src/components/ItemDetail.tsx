@@ -19,10 +19,37 @@ export const ItemDetail: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState('');
   const [swapping, setSwapping] = useState(false);
 
-  const userItems = currentUser ? items.filter(item => item.userId === currentUser.id && item.id !== selectedItem?.id && item.isAvailable) : [];
+  const userItems = currentUser ? items.filter(item => {
+    const itemUserId = item.userId?.toString();
+    const currentUserId = currentUser.id?.toString();
+    const isOwnItem = itemUserId === currentUserId;
+    const isDifferentItem = item.id !== selectedItem?.id;
+    const isAvailable = item.isAvailable !== false; // Default to true if undefined
+    
+    console.log('Filtering item:', {
+      itemId: item.id,
+      title: item.title,
+      itemUserId,
+      currentUserId,
+      isOwnItem,
+      isDifferentItem,
+      isAvailable,
+      shouldInclude: isOwnItem && isDifferentItem && isAvailable
+    });
+    
+    return isOwnItem && isDifferentItem && isAvailable;
+  }) : [];
+
+  console.log('User items for swap:', {
+    currentUserId: currentUser?.id,
+    totalItems: items.length,
+    userItems: userItems.length,
+    userItemsSample: userItems.map(item => ({ id: item.id, title: item.title, userId: item.userId })),
+    allItems: items.map(item => ({ id: item.id, title: item.title, userId: item.userId, isAvailable: item.isAvailable }))
+  });
 
   const getItemById = (itemId: string) => {
-    return items.find(item => item.id === itemId);
+    return items.find(item => item.id?.toString() === itemId?.toString());
   };
 
   const selectItemById = (itemId: string) => {
@@ -48,6 +75,7 @@ export const ItemDetail: React.FC = () => {
         setShowBrowse(false);
       } else {
         // Item not found, redirect to browse
+        console.warn(`Item with ID ${id} not found in items list`);
         goToBrowse();
       }
     } else {
@@ -206,7 +234,10 @@ export const ItemDetail: React.FC = () => {
                 alt={selectedItem.title || 'Item'}
                 className="w-full h-full object-cover"
                 onError={(e) => {
-                  e.currentTarget.src = '/placeholder-image.jpg';
+                  const target = e.currentTarget;
+                  if (!target.src.includes('/placeholder-image.jpg')) {
+                    target.src = '/placeholder-image.jpg';
+                  }
                 }}
               />
             </div>
@@ -215,9 +246,12 @@ export const ItemDetail: React.FC = () => {
                 {selectedItem.images.map((image, index) => (
                   <button
                     key={index}
-                    onClick={() => setSelectedImage(index)}
-                    className={`aspect-square rounded-lg overflow-hidden ${
-                      selectedImage === index ? 'ring-2 ring-emerald-500' : ''
+                    onClick={() => {
+                      console.log(`Selecting image ${index}:`, image);
+                      setSelectedImage(index);
+                    }}
+                    className={`aspect-square rounded-lg overflow-hidden border-2 transition-all ${
+                      selectedImage === index ? 'border-emerald-500 ring-2 ring-emerald-200' : 'border-gray-200 hover:border-gray-300'
                     }`}
                   >
                     <img
@@ -225,7 +259,10 @@ export const ItemDetail: React.FC = () => {
                       alt={`${selectedItem.title || 'Item'} ${index + 1}`}
                       className="w-full h-full object-cover"
                       onError={(e) => {
-                        e.currentTarget.src = '/placeholder-image.jpg';
+                        const target = e.currentTarget;
+                        if (!target.src.includes('/placeholder-image.jpg')) {
+                          target.src = '/placeholder-image.jpg';
+                        }
                       }}
                     />
                   </button>
@@ -302,7 +339,7 @@ export const ItemDetail: React.FC = () => {
               <div className="flex items-center space-x-4 text-sm text-gray-600">
                 <span className="flex items-center space-x-1">
                   <Calendar className="w-4 h-4" />
-                  <span>Posted {selectedItem.datePosted ? selectedItem.datePosted.toLocaleDateString() : 'Unknown date'}</span>
+                  <span>Posted {selectedItem.datePosted ? new Date(selectedItem.datePosted).toLocaleDateString() : 'Unknown date'}</span>
                 </span>
               </div>
             </div>
@@ -358,7 +395,10 @@ export const ItemDetail: React.FC = () => {
                         <span>Offer one of my items</span>
                       </label>
                     ) : (
-                      <p className="text-gray-600">You need to have posted items to make swap offers.</p>
+                      <div className="text-gray-600">
+                        <p>You need to have posted items to make swap offers.</p>
+                        <p className="text-sm mt-1">Debug info: Current user ID: {currentUser?.id}, Total items: {items.length}, Your items: {userItems.length}</p>
+                      </div>
                     )}
                   </div>
                 </div>

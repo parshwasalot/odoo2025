@@ -30,14 +30,60 @@ export const ItemsProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     try {
       setLoading(true);
       setError(null);
+      console.log('Fetching items from API...');
+      
       const token = localStorage.getItem('token');
+      console.log('Using token:', token ? 'exists' : 'missing');
+      
       const response = await axios.get(`${API_URL}/api/items`, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
       });
-      setItems(response.data.items);
-    } catch (err) {
-      setError('Failed to fetch items');
-      console.error(err);
+      
+      console.log('Raw API Response:', response.data);
+      
+      // Handle the backend response structure
+      if (response.data && Array.isArray(response.data.items)) {
+        console.log('Setting items:', response.data.items.length, 'items found');
+        
+        // Transform backend items to match frontend expectations
+        const transformedItems = response.data.items.map((item: any) => ({
+          id: (item.id || item._id)?.toString(), // Ensure ID is always a string
+          title: item.title,
+          description: item.description,
+          category: item.category,
+          size: item.size,
+          condition: item.condition,
+          pointValue: item.pointValue,
+          brand: item.brand,
+          material: item.material,
+          tags: item.tags || [],
+          images: item.imageUrls ? item.imageUrls.map((url: string) => `http://localhost:5000${url}`) : [], // Backend returns imageUrls, frontend expects images
+          userId: (item.userId || item.uploaderId)?.toString(), // Ensure userId is always a string
+          userName: item.userName || item.uploaderName,
+          userRating: item.userRating || 5,
+          datePosted: item.datePosted || item.createdAt ? new Date(item.datePosted || item.createdAt) : new Date(),
+          views: item.views || 0,
+          isAvailable: item.isAvailable !== undefined ? item.isAvailable : true
+        }));
+        
+        console.log('Transformed items:', transformedItems.length, 'Sample:', transformedItems[0]);
+        setItems(transformedItems);
+      } else if (Array.isArray(response.data)) {
+        // Fallback if backend returns items directly as array
+        console.log('Setting items (direct array):', response.data.length, 'items found');
+        setItems(response.data);
+      } else {
+        console.warn('Unexpected response structure:', response.data);
+        setItems([]);
+      }
+    } catch (err: any) {
+      console.error('Error fetching items:', {
+        message: err.message,
+        status: err.response?.status,
+        data: err.response?.data
+      });
+      setError('Failed to fetch items: ' + (err.response?.data?.message || err.message));
+      setItems([]);
     } finally {
       setLoading(false);
     }

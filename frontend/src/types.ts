@@ -1,5 +1,5 @@
 export interface Item {
-  id: string | number;
+  id: string;
   title: string;
   description: string;
   category: string;
@@ -8,9 +8,9 @@ export interface Item {
   pointValue: number;
   images: string[];
   userName: string;
-  userId?: string | number;
+  userId?: string;
   views: number;
-  datePosted: Date;
+  datePosted: Date | string;
   tags: string[];
   isAvailable: boolean;
   userRating?: number;

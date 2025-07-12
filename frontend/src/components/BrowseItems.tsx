@@ -1,12 +1,14 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Search, Filter, Grid3X3, List, Heart, Eye, User, Loader2 } from 'lucide-react';
+import { Search, Filter, Grid3X3, List, Eye, User, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useItems } from '../contexts/ItemsContext';
+import { useUser } from '../contexts/UserContext';
 import type { FilterOptions } from '../types';
 
 export const BrowseItems: React.FC = () => {
   const navigate = useNavigate();
   const { items, setSelectedItem, loading, error, fetchItems } = useItems();
+  const { currentUser } = useUser();
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState<FilterOptions>({
@@ -18,12 +20,15 @@ export const BrowseItems: React.FC = () => {
     maxPoints: undefined,
   });
 
-  const categories = ['All', 'Tops', 'Bottoms', 'Dresses', 'Outerwear', 'Shoes', 'Accessories'];
+  const categories = ['All', 'tops', 'bottoms', 'dresses', 'outerwear', 'shoes', 'accessories'];
   const sizes = ['All', 'XS', 'S', 'M', 'L', 'XL', 'XXL'];
   const conditions = ['All', 'New', 'Like New', 'Excellent', 'Good', 'Fair'];
 
   const filteredItems = useMemo(() => {
     return items.filter(item => {
+      // Exclude items from the current authenticated user
+      const notCurrentUser = !currentUser || item.userId !== currentUser.id;
+      
       const matchesSearch = !filters.searchTerm || 
         item.title.toLowerCase().includes(filters.searchTerm.toLowerCase()) ||
         item.description.toLowerCase().includes(filters.searchTerm.toLowerCase()) ||
@@ -35,9 +40,9 @@ export const BrowseItems: React.FC = () => {
       const matchesMinPoints = !filters.minPoints || item.pointValue >= filters.minPoints;
       const matchesMaxPoints = !filters.maxPoints || item.pointValue <= filters.maxPoints;
 
-      return matchesSearch && matchesCategory && matchesSize && matchesCondition && matchesMinPoints && matchesMaxPoints;
+      return notCurrentUser && matchesSearch && matchesCategory && matchesSize && matchesCondition && matchesMinPoints && matchesMaxPoints;
     });
-  }, [items, filters]);
+  }, [items, filters, currentUser]);
 
   const handleFilterChange = (key: keyof FilterOptions, value: string | number | undefined) => {
     setFilters(prev => ({ ...prev, [key]: value }));
@@ -49,8 +54,31 @@ export const BrowseItems: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchItems();
-  }, []);
+    // Only fetch items if we don't have any items yet and we're not already loading
+    if (items.length === 0 && !loading) {
+      console.log('BrowseItems: Component mounted, fetching items...');
+      fetchItems();
+    }
+  }, [fetchItems, items.length, loading]);
+
+  useEffect(() => {
+    console.log('BrowseItems: Items updated:', {
+      itemsCount: items.length,
+      loading,
+      error,
+      sampleItem: items[0] || 'No items'
+    });
+  }, [items, loading, error]);
+
+  useEffect(() => {
+    console.log('BrowseItems: Filtered items:', {
+      filteredCount: filteredItems.length,
+      totalItems: items.length,
+      currentUserId: currentUser?.id,
+      filters,
+      sampleFilteredItem: filteredItems[0] || 'No filtered items'
+    });
+  }, [filteredItems, items, filters, currentUser]);
 
   return (
     <div className="min-h-screen bg-gray-50 pt-8 pb-16">
@@ -59,7 +87,7 @@ export const BrowseItems: React.FC = () => {
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Browse Items</h1>
           <p className="text-gray-600">
-            Discover amazing items from our sustainable fashion community
+            Discover amazing items from other members of our sustainable fashion community
           </p>
         </div>
 
@@ -219,7 +247,7 @@ export const BrowseItems: React.FC = () => {
             {/* Results Header */}
             <div className="flex justify-between items-center mb-6">
               <p className="text-gray-600">
-                Showing {filteredItems.length} of {items.length} items
+                Showing {filteredItems.length} of {items.length} items from other users
               </p>
             </div>
 
@@ -234,7 +262,10 @@ export const BrowseItems: React.FC = () => {
                         alt={item.title}
                         className="w-full h-48 object-cover"
                         onError={(e) => {
-                          e.currentTarget.src = '/placeholder-image.jpg';
+                          const target = e.currentTarget;
+                          if (!target.src.includes('/placeholder-image.jpg')) {
+                            target.src = '/placeholder-image.jpg';
+                          }
                         }}
                       />
                       <div className="absolute top-3 right-3 bg-white bg-opacity-90 px-2 py-1 rounded-full text-xs font-medium text-emerald-600">
@@ -268,7 +299,10 @@ export const BrowseItems: React.FC = () => {
                         alt={item.title}
                         className="w-20 h-20 object-cover rounded-lg"
                         onError={(e) => {
-                          e.currentTarget.src = '/placeholder-image.jpg';
+                          const target = e.currentTarget;
+                          if (!target.src.includes('/placeholder-image.jpg')) {
+                            target.src = '/placeholder-image.jpg';
+                          }
                         }}
                       />
                       <div className="flex-1">
