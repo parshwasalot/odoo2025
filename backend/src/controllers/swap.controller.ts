@@ -225,7 +225,7 @@ export const completeSwap = async (req: Request, res: Response): Promise<void> =
         { session }
       );
 
-      // Create points transactions
+      // Create points transactions with ordered: true for session
       const pointsTransactions = await PointsTransaction.create([
         {
           userId: swap.ownerId,
@@ -241,7 +241,7 @@ export const completeSwap = async (req: Request, res: Response): Promise<void> =
           reason: 'swap_completion',
           itemId: swap.itemId
         }
-      ], { session });
+      ], { session, ordered: true });
 
       await session.commitTransaction();
       
