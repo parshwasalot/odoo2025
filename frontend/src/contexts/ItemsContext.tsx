@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
 import type { Item } from '../types';
 import axios from 'axios';
 
@@ -13,11 +13,14 @@ interface ItemsContextType {
   fetchItems: () => Promise<void>;
   handleAddItem: (itemData: Omit<Item, 'id' | 'userId' | 'userName' | 'userRating' | 'datePosted' | 'views' | 'isAvailable'>) => Promise<void>;
   handleViewItem: (item: Item) => Promise<void>;
+  getItemById: (id: string) => Item | undefined;
+  selectItemById: (id: string) => void;
+  incrementViews: (id: string) => void;
 }
 
 export const ItemsContext = createContext<ItemsContextType | undefined>(undefined);
 
-export const ItemsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const ItemsProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [items, setItems] = useState<Item[]>([]);
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
   const [loading, setLoading] = useState(false);
@@ -138,6 +141,26 @@ export const ItemsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
+  const getItemById = (id: string): Item | undefined => {
+    return items.find(item => item.id === id);
+  };
+
+  const selectItemById = (id: string) => {
+    const item = getItemById(id);
+    if (item) {
+      setSelectedItem(item);
+      incrementViews(id);
+    }
+  };
+
+  const incrementViews = (id: string) => {
+    setItems(prevItems =>
+      prevItems.map(item =>
+        item.id === id ? { ...item, views: item.views + 1 } : item
+      )
+    );
+  };
+
   const value = {
     items,
     loading,
@@ -146,7 +169,10 @@ export const ItemsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setSelectedItem,
     fetchItems,
     handleAddItem,
-    handleViewItem
+    handleViewItem,
+    getItemById,
+    selectItemById,
+    incrementViews,
   };
 
   return <ItemsContext.Provider value={value}>{children}</ItemsContext.Provider>;

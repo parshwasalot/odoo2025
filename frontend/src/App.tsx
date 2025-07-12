@@ -12,6 +12,7 @@ import { SocialImpactDashboard } from './components/SocialImpactDashboard';
 import { Messages } from './components/Messages';
 import { AddItem } from './components/AddItem';
 import { AdminWrapper } from './components/AdminWrapper';
+import { ItemDetail } from './components/ItemDetail';
 
 function App() {
   const [currentPage, setCurrentPage] = useState('home');
@@ -45,6 +46,7 @@ function App() {
                         <Route path="/impact" element={<SocialImpactDashboard />} />
                         <Route path="/messages" element={<Messages />} />
                         <Route path="/add-item" element={<AddItem />} />
+                        <Route path="/item/:id" element={<ItemDetail />} />
                       </Routes>
                     </main>
 

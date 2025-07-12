@@ -31,7 +31,7 @@ export const Header: React.FC<HeaderProps> = ({ currentPage, setCurrentPage, set
   const userNavItems = currentUser ? [
     { id: 'dashboard', label: 'Dashboard', icon: User },
     { id: 'impact', label: 'Impact', icon: BarChart3 },
-    { id: 'messages', label: 'Messages', icon: MessageCircle },
+    //{ id: 'messages', label: 'Messages', icon: MessageCircle },
     { id: 'add-item', label: 'List Item', icon: Heart },
   ] : [];
 
